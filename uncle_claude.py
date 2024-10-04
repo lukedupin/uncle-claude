@@ -1,4 +1,4 @@
-import requests, json, sys, re
+import requests, json, sys, re, pyperclip
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -21,6 +21,7 @@ class JsonSettings:
 
 target = JsonSettings.load(f'{sys.argv[1]}/target.json')
 creds = JsonSettings.load(f'{sys.argv[1]}/creds.json')
+prompts = JsonSettings.load(f'{sys.argv[1]}/prompts.json')
 
 headers = {
     'Content-Type': 'application/json',
@@ -73,3 +74,9 @@ print()
 console = Console()
 md = Markdown(buffer)
 console.print(md)
+
+# Copy the first code block to the clipboard
+for token in md.parsed:
+    if token.type == 'fence':
+        pyperclip.copy(token.content)
+        break
