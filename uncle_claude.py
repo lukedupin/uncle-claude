@@ -3,6 +3,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 
 
+# Handy class for loading json files
 class JsonSettings:
     def __init__(self, filename, **kwargs):
         self.filename = filename
@@ -18,11 +19,28 @@ class JsonSettings:
         with open(self.filename, 'w') as f:
             json.dump(self.__dict__, f)
 
-
+# Load up my content
 target = JsonSettings.load(f'{sys.argv[1]}/target.json')
 creds = JsonSettings.load(f'{sys.argv[1]}/creds.json')
 prompts = JsonSettings.load(f'{sys.argv[1]}/prompts.json')
 
+# Setup the prompt
+prompt = sys.argv[2]
+if prompt.startswith('-p'):
+    if len(splt := prompt.split(' ')) > 1:
+        preset = splt[0][2:]
+        prompt = splt[1:]
+        if preset in prompts.prompts:
+            raw = prompts.prompts[preset]
+            if 'PROMPT' in raw:
+                prompt = re.sub(r'PROMPT', prompt, raw)
+            else:
+                prompt = f"{raw} {prompt}"
+        else:
+            print(f'Prompt preset "{preset}" not found')
+            sys.exit(1)
+
+# Setup the request
 headers = {
     'Content-Type': 'application/json',
     'User-Agent': target.user_agent,
