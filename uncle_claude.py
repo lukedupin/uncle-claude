@@ -30,6 +30,14 @@ def url( creds, target ):
     return target
 
 
+def is_valid_uuid(uuid_string):
+    try:
+        uuid_obj = uuid.UUID(uuid_string)
+        return str(uuid_obj) == uuid_string
+    except ValueError:
+        return False
+
+
 # Load up my content
 target = JsonSettings.load(f'{sys.argv[1]}/target.json')
 creds = JsonSettings.load(f'{sys.argv[1]}/creds.json')
@@ -45,6 +53,8 @@ except FileNotFoundError:
     pass
 
 create_conv = False
+list_chats = False
+select_conv = False
 
 # Setup the prompt
 prompt_args = sys.argv[2].split(' ')
@@ -69,6 +79,24 @@ while len(prompt_args) > 0:
     elif prompt.startswith('-n'):
         create_conv = True
 
+    elif prompt.startswith('-l'):
+        list_chats = True
+
+        # Is the user trying to select a conversation?
+        code = ' '.join(prompt_args[1:]).strip()
+        if is_valid_uuid(code):
+            list_chats = False
+            select_conv = True
+
+    elif prompt.startswith('-s'):
+        # Is the user trying to select a conversation?
+        code = ' '.join(prompt_args[1:]).strip()
+        if is_valid_uuid(code):
+            select_conv = True
+        else:
+            print("Invalid conversation UUID")
+            sys.exit(0)
+
     else:
         break
 
@@ -81,7 +109,9 @@ headers = {
 }
 cookies = {data.split('=')[0].strip(): data.split('=')[1].strip() for data in creds.cookies.split(';')}
 
-# Create a new conversation
+#######################
+### Create a new conversation
+#######################
 if create_conv:
     # Post!
     data = {
@@ -100,6 +130,7 @@ if create_conv:
     if response.status_code == 201:
         js = response.json()
         creds.conversation = js['uuid']
+        creds.name = js['name']
         creds.save()
         print(f"New conversation UUID: {creds.conversation}")
 
@@ -112,8 +143,60 @@ if create_conv:
     else:
         print(f"Failed to create conversation: {response.status_code}")
 
-# Query LLM
+########################
+### List the chat conversations
+########################
+elif list_chats:
+    # Query the chat conversation to get the parent_uuid
+    response = requests.get(
+        url( creds, target.list_conv ),
+        headers=headers,
+        cookies=cookies,
+    )
+    if response.status_code == 200:
+        ary = response.json()
+        for js in reversed(ary):
+            print(f"{js['name']} - {js['uuid']}")
+
+        with open(f'{sys.argv[1]}/list_chats', 'w') as f:
+            f.write( json.dumps(ary, indent=4) )
+            f.write('\n')
+
+    else:
+        print(f"Failed to query conversation: {response.status_code}")
+
+########################
+### List the chat conversations
+########################
+elif select_conv:
+    conv_uuid = ' '.join(prompt_args).strip()
+    with open(f'{sys.argv[1]}/list_chats', 'r') as f:
+        for obj in json.loads(f.read()):
+            if obj['uuid'] == conv_uuid:
+                print(f"Selected conversation: {obj['name']}")
+                creds.conversation = obj['uuid']
+                creds.name = obj['name']
+                creds.save()
+
+                if 'current_leaf_message_uuid' in obj and obj['current_leaf_message_uuid'] and len(obj['current_leaf_message_uuid']) == 36:
+                    with open(f'{sys.argv[1]}/parent_uuid', 'w') as f:
+                        f.write( obj['current_leaf_message_uuid'] )
+                else:
+                    try:
+                        os.remove(f'{sys.argv[1]}/parent_uuid')
+                    except FileNotFoundError:
+                        pass
+                sys.exit(0)
+                break
+
+    print(f"Conversation not found: {conv_uuid}")
+    print("Use -l to list conversations")
+
+#############
+### Query LLM
+#############
 else:
+    print(f"Querying LLM on [ {creds.name} ]")
     data = {
         "prompt": ' '.join(prompt_args),
         "parent_message_uuid": parent_uuid,
@@ -122,6 +205,9 @@ else:
         "files":[],
         "rendering_mode":"raw"
     }
+    #print(url(creds, target.query_llm))
+    #print(data)
+    #sys.exit(0)
 
     response = requests.post(
         url( creds, target.query_llm ),
