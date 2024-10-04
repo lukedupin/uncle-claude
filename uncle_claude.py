@@ -29,7 +29,7 @@ prompt = sys.argv[2]
 if prompt.startswith('-p'):
     if len(splt := prompt.split(' ')) > 1:
         preset = splt[0][2:]
-        prompt = splt[1:]
+        prompt = ' '.join(splt[1:])
         if preset in prompts.prompts:
             raw = prompts.prompts[preset]
             if 'PROMPT' in raw:
