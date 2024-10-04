@@ -1,7 +1,6 @@
-import requests, json, sys, re, pyperclip
+import requests, json, sys, re, os, time
 from rich.console import Console
 from rich.markdown import Markdown
-
 
 # Handy class for loading json files
 class JsonSettings:
@@ -18,6 +17,7 @@ class JsonSettings:
     def save(self):
         with open(self.filename, 'w') as f:
             json.dump(self.__dict__, f)
+
 
 # Load up my content
 target = JsonSettings.load(f'{sys.argv[1]}/target.json')
@@ -47,7 +47,7 @@ headers = {
 }
 cookies = {data.split('=')[0].strip(): data.split('=')[1].strip() for data in creds.cookies.split(';')}
 data = {
-    "prompt": sys.argv[2],
+    "prompt": prompt,
     "parent_message_uuid": creds.parent_uuid,
     "timezone": target.timezone,
     "attachments":[],
@@ -94,7 +94,16 @@ md = Markdown(buffer)
 console.print(md)
 
 # Copy the first code block to the clipboard
+cmds = []
 for token in md.parsed:
     if token.type == 'fence':
-        pyperclip.copy(token.content)
-        break
+        for line in token.content.split('\n'):
+            if len(line.strip()) != 0:
+                cmds.append(line.strip())
+
+home = os.environ.get('HOME')
+with open(f"{home}/.histfile", 'a') as f:
+    for line in reversed(cmds):
+        f.write(f": {time.time_ns() // 1000000000}:0;{line}\n")
+# run the fc -R command to reload the history
+
