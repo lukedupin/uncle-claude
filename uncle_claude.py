@@ -88,7 +88,7 @@ while len(prompt_args) > 0:
             list_chats = False
             select_conv = True
 
-    elif prompt.startswith('-s'):
+    elif prompt.startswith('-c'):
         # Is the user trying to select a conversation?
         code = ' '.join(prompt_args[1:]).strip()
         if is_valid_uuid(code):
@@ -96,6 +96,12 @@ while len(prompt_args) > 0:
         else:
             print("Invalid conversation UUID")
             sys.exit(0)
+
+    elif prompt.startswith('-s'):
+        creds.cookies = ' '.join(prompt_args[1:]).replace('\\', '')
+        creds.save()
+        print("Cookies updated")
+        sys.exit(0)
 
     else:
         break
