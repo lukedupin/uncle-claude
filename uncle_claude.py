@@ -1,4 +1,4 @@
-import uuid
+import uuid, pyperclip
 
 import requests, json, sys, re, os, time
 from rich.console import Console
@@ -259,11 +259,18 @@ else:
     ### Inject commands into history
 
     # Copy the first code block to the clipboard
+    largest = None
     cmds = []
     for token in md.parsed:
         if token.type == 'fence':
             if len(token.content.strip()) != 0:
-                cmds.append(token.content.strip())
+                cmd = token.content.strip()
+                cmds.append( cmd )
+                if largest is None or len(largest) < len(cmd):
+                    largest = cmd
+
+    if largest is not None:
+        pyperclip.copy(largest)
 
     home = os.environ.get('HOME')
     with open(f"{home}/.histfile", 'a') as f:
